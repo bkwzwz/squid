@@ -393,7 +393,7 @@ MimeIcon::created(StoreEntry *newEntry)
         status = Http::scNoContent;
     }
 
-    StoreEntry *e = storeCreatePureEntry(url_, url_, Http::METHOD_GET);
+    StoreEntry *e = storeCreatePureEntry(url_, url_, Http::METHOD_GET, NULL);
     e->lock("MimeIcon::created");
     EBIT_SET(e->flags, ENTRY_SPECIAL);
     const auto madePublic = e->setPublicKey();

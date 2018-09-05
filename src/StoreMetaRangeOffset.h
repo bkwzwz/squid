@@ -9,19 +9,17 @@
 #ifndef SQUID_STOREMETARANGEOFFSET_H
 #define SQUID_STOREMETARANGEOFFSET_H
 
-#include "MemPool.h"
 #include "StoreMeta.h"
 
 class StoreMetaRangeOffset : public StoreMeta
 {
 
-public:
 MEMPROXY_CLASS(StoreMetaRangeOffset);
+
+public:
 
     char getType() const {return STORE_META_RANGE_OFFSET;}
 };
-
-MEMPROXY_CLASS_INLINE(StoreMetaRangeOffset);
 
 #endif /* SQUID_STOREMETARANGEOFFSET_H */
 

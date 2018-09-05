@@ -14,6 +14,7 @@
 #include "hash.h"
 #include "http/forward.h"
 #include "store/forward.h"
+#include "enums.h"
 
 typedef enum {
     ksDefault = 0,

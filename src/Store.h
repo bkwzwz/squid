@@ -430,7 +430,7 @@ StoreEntry *storeCreateEntry(const char *, const char *, const RequestFlags &, c
 
 /// \ingroup StoreAPI
 /// Creates a new StoreEntry with mem_obj and sets initial flags/states.
-StoreEntry *storeCreatePureEntry(const char *storeId, const char *logUrl, const RequestFlags &, const HttpRequestMethod&, const HttpHdrRange * range = NULL);
+StoreEntry *storeCreatePureEntry(const char *storeId, const char *logUrl, const HttpRequestMethod&, const HttpHdrRange * range = NULL);
 
 /// \ingroup StoreAPI
 void storeInit(void);

@@ -376,7 +376,7 @@ MemObject::trimSwappable(StoreEntry * entry)
      * The -1 makes sure the page isn't freed until storeSwapOut has
      * walked to the next page.
      */
-    if (entry->range_offset != RANGE_UNDEFINED && _reply && objectBytesOnDisk() > _reply->hdr_sz) {
+    if (entry->range_offset != RANGE_UNDEFINED && reply_ && objectBytesOnDisk() > reply_->hdr_sz) {
         // Range request will need to add range offset to size on disk
         int64_t on_disk_offset = objectBytesOnDisk() + entry->range_offset;
         if (on_disk_offset < new_mem_lo)

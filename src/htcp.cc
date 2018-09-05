@@ -36,6 +36,7 @@
 #include "StoreClient.h"
 #include "tools.h"
 #include "URL.h"
+#include "http/one/RequestParser.h"
 
 typedef struct _Countstr Countstr;
 
@@ -685,7 +686,16 @@ htcpUnpackSpecifier(char *buf, int sz)
         return nil;
     }
 
-    s->request->parseHeader(s->req_hdrs, strlen(s->req_hdrs));
+    SBuf sb(s->req_hdrs, strlen(s->req_hdrs));
+    Http1::RequestParser hp;
+    bool parsedOk = hp.parse(sb);
+    if (!parsedOk)
+    {
+        debugs(31, 3, "failed to parse header");
+        return nil;
+    }
+
+    s->request->parseHeader(hp);
 
     return s;
 }
@@ -1455,7 +1465,7 @@ htcpQuery(StoreEntry * e, HttpRequest * req, CachePeer * p)
     mb.init();
     hdr.packInto(&mb);
     /* trailer */
-    packerAppend(&pa, "\r\n", 2);
+    mb.append("\r\n", 2);
     hdr.clean();
     stuff.S.req_hdrs = mb.buf;
     pktlen = htcpBuildPacket(pkt, sizeof(pkt), &stuff);

@@ -917,7 +917,7 @@ HttpStateData::haveParsedReplyHeaders()
 
     if (entry->range_offset != RANGE_UNDEFINED && statusCode != Http::scPartialContent) {
         // Not storing any range response that is not 206
-        entry->setReleaseFlag();
+        EBIT_SET(entry->flags, RELEASE_REQUEST);
     }
 
     bool varyFailure = false;

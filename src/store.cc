@@ -103,7 +103,6 @@ static storerepl_entry_t *storerepl_list = NULL;
 /*
  * local function prototypes
  */
-static int getKeyCounter(void);
 static OBJH storeCheckCachableStats;
 static EVH storeLateRelease;
 
@@ -800,7 +799,7 @@ StoreEntry::adjustVary()
 }
 
 StoreEntry *
-storeCreatePureEntry(const char *url, const char *log_url, const RequestFlags &flags, const HttpRequestMethod& method, const HttpHdrRange *range)
+storeCreatePureEntry(const char *url, const char *log_url, const HttpRequestMethod& method, const HttpHdrRange *range)
 
 {
     StoreEntry *e = NULL;
@@ -819,7 +818,7 @@ storeCreatePureEntry(const char *url, const char *log_url, const RequestFlags &f
             if (range->specs[0]->offset == -1) {
                 e->range_offset = RANGE_UNDEFINED;
                 e->range_length = RANGE_UNDEFINED;
-                e->setReleaseFlag();
+                EBIT_SET(e->flags, RELEASE_REQUEST);
             } else {
                 e->range_offset = range->specs[0]->offset;
                 e->range_length = range->specs[0]->length;
@@ -829,7 +828,7 @@ storeCreatePureEntry(const char *url, const char *log_url, const RequestFlags &f
             // Multiple ranges request is uncacheable so set release flag and mark as RANGE_UNDEFINED
             e->range_offset = RANGE_UNDEFINED;
             e->range_length = RANGE_UNDEFINED;
-            e->setReleaseFlag();
+            EBIT_SET(e->flags, RELEASE_REQUEST);
         }
     } else {
         // For non range requests, use RANGE_UNDEFINED as indicator

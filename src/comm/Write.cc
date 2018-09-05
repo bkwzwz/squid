@@ -36,6 +36,11 @@ Comm::Write(const Comm::ConnectionPointer &conn, const char *buf, int size, Asyn
 {
     debugs(5, 5, HERE << conn << ": sz " << size << ": asynCall " << callback);
 
+    if (conn->fd == -1) {
+        debugs(5, 3, HERE << "Error: conn->fd is -1");
+        return;
+    }
+
     /* Make sure we are open, not closing, and not writing */
     assert(fd_table[conn->fd].flags.open);
     assert(!fd_table[conn->fd].closing());

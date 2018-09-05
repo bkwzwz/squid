@@ -531,7 +531,13 @@ Store::Controller::keepForLocalMemoryCache(StoreEntry &e) const
 
     // does the current and expected size obey memory caching limits?
     assert(e.mem_obj);
-    const int64_t loadedSize = e.mem_obj->endOffset();
+    int64_t loadedSize = e.mem_obj->endOffset();
+    if (e.range_offset != RANGE_UNDEFINED && loadedSize > e.mem_obj->getReply()->hdr_sz && e.getReply() &&
+        e.getReply()->sline.status() == Http::scPartialContent) {
+        // For range request, we will need to remove range offset to get actual loaded size
+        loadedSize -= e.range_offset;
+        assert(loadedSize >= 0);
+    }
     const int64_t expectedSize = e.mem_obj->expectedReplySize(); // may be < 0
     const int64_t ramSize = max(loadedSize, expectedSize);
     const int64_t ramLimit = min(

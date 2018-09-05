@@ -202,6 +202,9 @@ public:
     uint16_t flags;
     /* END OF ON-DISK STORE_META_STD */
 
+    int64_t range_offset;
+    int64_t range_length;
+
     /// unique ID inside a cache_dir for swapped out entries; -1 for others
     sfileno swap_filen:25; // keep in sync with SwapFilenMax
 
@@ -219,6 +222,7 @@ public:
     static size_t inUseCount();
     static void getPublicByRequestMethod(StoreClient * aClient, HttpRequest * request, const HttpRequestMethod& method);
     static void getPublicByRequest(StoreClient * aClient, HttpRequest * request);
+    static void getPublicByRequestAlwaysCheckRange(StoreClient * aClient, HttpRequest * request);
     static void getPublic(StoreClient * aClient, const char *uri, const HttpRequestMethod& method);
 
     virtual bool isNull() {
@@ -412,21 +416,21 @@ const char *storeEntryFlags(const StoreEntry *);
 void storeEntryReplaceObject(StoreEntry *, HttpReply *);
 
 /// \ingroup StoreAPI
-StoreEntry *storeGetPublic(const char *uri, const HttpRequestMethod& method);
+StoreEntry *storeGetPublic(const char *uri, const HttpRequestMethod& method, const int64_t range_offset = RANGE_UNDEFINED, const int64_t range_length = RANGE_UNDEFINED);
 
 /// \ingroup StoreAPI
-StoreEntry *storeGetPublicByRequest(HttpRequest * request, const KeyScope keyScope = ksDefault);
+StoreEntry *storeGetPublicByRequest(HttpRequest * request, const KeyScope keyScope = ksDefault, const bool useRange = true);
 
 /// \ingroup StoreAPI
-StoreEntry *storeGetPublicByRequestMethod(HttpRequest * request, const HttpRequestMethod& method, const KeyScope keyScope = ksDefault);
+StoreEntry *storeGetPublicByRequestMethod(HttpRequest * request, const HttpRequestMethod& method, const KeyScope keyScope = ksDefault, const bool useRange = true);
 
 /// \ingroup StoreAPI
 /// Like storeCreatePureEntry(), but also locks the entry and sets entry key.
-StoreEntry *storeCreateEntry(const char *, const char *, const RequestFlags &, const HttpRequestMethod&);
+StoreEntry *storeCreateEntry(const char *, const char *, const RequestFlags &, const HttpRequestMethod&, const HttpHdrRange * range = NULL);
 
 /// \ingroup StoreAPI
 /// Creates a new StoreEntry with mem_obj and sets initial flags/states.
-StoreEntry *storeCreatePureEntry(const char *storeId, const char *logUrl, const HttpRequestMethod&);
+StoreEntry *storeCreatePureEntry(const char *storeId, const char *logUrl, const RequestFlags &, const HttpRequestMethod&, const HttpHdrRange * range = NULL);
 
 /// \ingroup StoreAPI
 void storeInit(void);
@@ -472,6 +476,9 @@ extern FREE destroyStoreEntry;
 
 /// \ingroup StoreAPI
 void storeGetMemSpace(int size);
+
+/// \ingroup StoreAPI
+int getKeyCounter(void);
 
 #endif /* SQUID_STORE_H */
 

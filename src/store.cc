@@ -46,6 +46,7 @@
 #include "StrList.h"
 #include "swap_log_op.h"
 #include "tools.h"
+#include "HttpHeaderRange.h"
 #if USE_DELAY_POOLS
 #include "DelayPools.h"
 #endif
@@ -330,6 +331,8 @@ StoreEntry::StoreEntry() :
     swap_file_sz(0),
     refcount(0),
     flags(0),
+    range_offset(RANGE_UNDEFINED),
+    range_length(RANGE_UNDEFINED),
     swap_filen(-1),
     swap_dirn(-1),
     mem_status(NOT_IN_MEMORY),
@@ -511,7 +514,29 @@ void
 StoreEntry::getPublicByRequest (StoreClient *aClient, HttpRequest * request)
 {
     assert (aClient);
-    StoreEntry *result = storeGetPublicByRequest (request);
+    StoreEntry *result = NULL;
+
+    if (request->range) {
+        // For range request, first try without range to see if complete object is in cache
+        result = storeGetPublicByRequest(request, ksDefault, false);
+    }
+
+    if (!result)
+        result = storeGetPublicByRequest (request, ksDefault, true);
+
+    if (!result)
+        result = NullStoreEntry::getInstance();
+
+    aClient->created (result);
+}
+
+void
+StoreEntry::getPublicByRequestAlwaysCheckRange (StoreClient *aClient, HttpRequest * request)
+{
+    assert (aClient);
+    StoreEntry *result = NULL;
+
+    result = storeGetPublicByRequest (request, ksDefault, true);
 
     if (!result)
         result = NullStoreEntry::getInstance();
@@ -532,30 +557,31 @@ StoreEntry::getPublic (StoreClient *aClient, const char *uri, const HttpRequestM
 }
 
 StoreEntry *
-storeGetPublic(const char *uri, const HttpRequestMethod& method)
+storeGetPublic(const char *uri, const HttpRequestMethod& method, const int64_t range_offset, const int64_t range_length)
 {
-    return Store::Root().find(storeKeyPublic(uri, method));
+    return Store::Root().find(storeKeyPublic(uri, method, ksDefault, range_offset, range_length));
 }
 
 StoreEntry *
-storeGetPublicByRequestMethod(HttpRequest * req, const HttpRequestMethod& method, const KeyScope keyScope)
+storeGetPublicByRequestMethod(HttpRequest * req, const HttpRequestMethod& method, const KeyScope keyScope, const bool useRange)
 {
-    return Store::Root().find(storeKeyPublicByRequestMethod(req, method, keyScope));
+    return Store::Root().find(storeKeyPublicByRequestMethod(req, method, keyScope, useRange));
 }
 
 StoreEntry *
-storeGetPublicByRequest(HttpRequest * req, const KeyScope keyScope)
+storeGetPublicByRequest(HttpRequest * req, const KeyScope keyScope, const bool useRange)
 {
-    StoreEntry *e = storeGetPublicByRequestMethod(req, req->method, keyScope);
+    StoreEntry *e = storeGetPublicByRequestMethod(req, req->method, keyScope, useRange);
 
-    if (e == NULL && req->method == Http::METHOD_HEAD)
+    if (e == NULL && req->method == Http::METHOD_HEAD) {
         /* We can generate a HEAD reply from a cached GET object */
-        e = storeGetPublicByRequestMethod(req, Http::METHOD_GET, keyScope);
+        e = storeGetPublicByRequestMethod(req, Http::METHOD_GET, keyScope, useRange);
+    }
 
     return e;
 }
 
-static int
+int
 getKeyCounter(void)
 {
     static int key_counter = 0;
@@ -690,7 +716,7 @@ StoreEntry::calcPublicKey(const KeyScope keyScope)
 {
     assert(mem_obj);
     return mem_obj->request ? storeKeyPublicByRequest(mem_obj->request.getRaw(), keyScope) :
-           storeKeyPublic(mem_obj->storeId(), mem_obj->method, keyScope);
+           storeKeyPublic(mem_obj->storeId(), mem_obj->method, keyScope, range_offset, range_length);
 }
 
 /// Updates mem_obj->request->vary_headers to reflect the current Vary.
@@ -774,7 +800,8 @@ StoreEntry::adjustVary()
 }
 
 StoreEntry *
-storeCreatePureEntry(const char *url, const char *log_url, const HttpRequestMethod& method)
+storeCreatePureEntry(const char *url, const char *log_url, const RequestFlags &flags, const HttpRequestMethod& method, const HttpHdrRange *range)
+
 {
     StoreEntry *e = NULL;
     debugs(20, 3, "storeCreateEntry: '" << url << "'");
@@ -787,14 +814,36 @@ storeCreatePureEntry(const char *url, const char *log_url, const HttpRequestMeth
     e->lastref = squid_curtime;
     e->timestamp = -1;          /* set in StoreEntry::timestampsSet() */
     e->ping_status = PING_NONE;
+    if (range) {
+        if (range->specs.size() == 1) {
+            if (range->specs[0]->offset == -1) {
+                e->range_offset = RANGE_UNDEFINED;
+                e->range_length = RANGE_UNDEFINED;
+                e->setReleaseFlag();
+            } else {
+                e->range_offset = range->specs[0]->offset;
+                e->range_length = range->specs[0]->length;
+            }
+        } else {
+            assert(range->specs.size() > 1);
+            // Multiple ranges request is uncacheable so set release flag and mark as RANGE_UNDEFINED
+            e->range_offset = RANGE_UNDEFINED;
+            e->range_length = RANGE_UNDEFINED;
+            e->setReleaseFlag();
+        }
+    } else {
+        // For non range requests, use RANGE_UNDEFINED as indicator
+        e->range_offset = RANGE_UNDEFINED;
+        e->range_length = RANGE_UNDEFINED;
+    }
     EBIT_SET(e->flags, ENTRY_VALIDATED);
     return e;
 }
 
 StoreEntry *
-storeCreateEntry(const char *url, const char *logUrl, const RequestFlags &flags, const HttpRequestMethod& method)
+storeCreateEntry(const char *url, const char *logUrl, const RequestFlags &flags, const HttpRequestMethod& method, const HttpHdrRange *range)
 {
-    StoreEntry *e = storeCreatePureEntry(url, logUrl, method);
+    StoreEntry *e = storeCreatePureEntry(url, logUrl, method, range);
     e->lock("storeCreateEntry");
 
     if (!neighbors_do_private_keys && flags.hierarchical && flags.cachable && e->setPublicKey())
@@ -1088,6 +1137,12 @@ StoreEntry::complete()
      * in use of object_sz?
      */
     mem_obj->object_sz = mem_obj->endOffset();
+
+    if (range_offset != RANGE_UNDEFINED && this->getReply() && this->getReply()->sline.status() == Http::scPartialContent) {
+        debugs(20, 3, "storeComplete: reduce object_sz by range_offset " << range_offset);
+        mem_obj->object_sz -= range_offset;
+        assert(mem_obj->object_sz >= 0);
+    }
 
     store_status = STORE_OK;
 
@@ -1886,7 +1941,7 @@ StoreEntry::trimMemory(const bool preserveSwappable)
         return; // cannot trim because we do not load them again
 
     if (preserveSwappable)
-        mem_obj->trimSwappable();
+        mem_obj->trimSwappable(this);
     else
         mem_obj->trimUnSwappable();
 

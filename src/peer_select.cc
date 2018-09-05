@@ -149,6 +149,14 @@ peerSelectIcpPing(HttpRequest * request, int direct, StoreEntry * entry)
         if (direct != DIRECT_NO)
             return 0;
 
+    // Disable ICP for range request since ICP protocol cannot include range parameters
+    if (entry->range_offset != RANGE_UNDEFINED && Config.Port.icp > 0)
+        return 0;
+
+    // Disable HTCP for multi-range request since hash key only contains single range
+    if (request->multipartRangeRequest() && Config.Port.htcp > 0)
+        return 0;
+
     n = neighborsCount(request);
 
     debugs(44, 3, "counted " << n << " neighbors");

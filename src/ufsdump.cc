@@ -113,7 +113,15 @@ struct DumpStoreMeta : public unary_function<StoreMeta, void> {
             std::cout << "URL: " << (char *)x.value << std::endl;
             break;
 
-        default:
+        case STORE_META_RANGE_OFFSET:
+            std::cout << "Range Offset: " << *((int64_t *)x.value) << std::endl;
+            break;
+
+        case STORE_META_RANGE_LENGTH:
+            std::cout << "Range Length: " << *((int64_t *)x.value) << std::endl;
+            break;
+
+            default:
             std::cout << "Unknown store meta type: " << (int)x.getType() <<
                       " of length " << x.length << std::endl;
             break;

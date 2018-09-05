@@ -105,6 +105,8 @@ enum {
 
     STORE_META_STOREURL,    /* the store url, if different to the normal URL */
     STORE_META_VARY_ID,     /* Unique ID linking variants */
+    STORE_META_RANGE_OFFSET, /* Range request starting index */
+    STORE_META_RANGE_LENGTH, /* Range request length */
     STORE_META_END
 };
 

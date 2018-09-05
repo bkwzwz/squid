@@ -365,7 +365,7 @@ MemObject::policyLowestOffsetToKeep(bool swap) const
 }
 
 void
-MemObject::trimSwappable()
+MemObject::trimSwappable(StoreEntry * entry)
 {
     int64_t new_mem_lo = policyLowestOffsetToKeep(1);
     /*
@@ -376,10 +376,16 @@ MemObject::trimSwappable()
      * The -1 makes sure the page isn't freed until storeSwapOut has
      * walked to the next page.
      */
-    int64_t on_disk;
-
-    if ((on_disk = objectBytesOnDisk()) - 1 < new_mem_lo)
-        new_mem_lo = on_disk - 1;
+    if (entry->range_offset != RANGE_UNDEFINED && _reply && objectBytesOnDisk() > _reply->hdr_sz) {
+        // Range request will need to add range offset to size on disk
+        int64_t on_disk_offset = objectBytesOnDisk() + entry->range_offset;
+        if (on_disk_offset < new_mem_lo)
+            new_mem_lo = on_disk_offset;
+    } else {
+        int64_t on_disk;
+        if ((on_disk = objectBytesOnDisk()) - 1 < new_mem_lo)
+            new_mem_lo = on_disk - 1;
+    }
 
     if (new_mem_lo == -1)
         new_mem_lo = 0; /* the above might become -1 */

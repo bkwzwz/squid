@@ -86,6 +86,23 @@ storeSwapMetaBuild(StoreEntry * e)
     }
 
     T = StoreMeta::Add(T, t);
+
+    if (e->range_offset != RANGE_UNDEFINED) {
+        t = StoreMeta::Factory(STORE_META_RANGE_OFFSET, sizeof(e->range_offset), &e->range_offset);
+        if (!t) {
+            storeSwapTLVFree(TLV);
+            return NULL;
+        }
+        T = StoreMeta::Add(T, t);
+
+        t = StoreMeta::Factory(STORE_META_RANGE_LENGTH, sizeof(e->range_length), &e->range_length);
+        if (!t) {
+            storeSwapTLVFree(TLV);
+            return NULL;
+        }
+        T = StoreMeta::Add(T, t);
+    }
+
     SBuf vary(e->mem_obj->vary_headers);
 
     if (!vary.isEmpty()) {

@@ -476,6 +476,8 @@ HttpStateData::reusableReply(HttpStateData::ReuseDecision &decision)
     case Http::scMovedPermanently:
     case Http::scPermanentRedirect:
 
+    case Http::scPartialContent:
+
     case Http::scGone:
         /*
          * Don't cache objects that need to be refreshed on next request,
@@ -538,7 +540,6 @@ HttpStateData::reusableReply(HttpStateData::ReuseDecision &decision)
         decision.make(ReuseDecision::doNotCacheButShare, shareableError);
         break;
 
-    case Http::scPartialContent: /* Not yet supported. TODO: make shareable for suitable ranges */
     case Http::scNotAcceptable:
     case Http::scRequestTimeout: // TODO: is this shareable?
     case Http::scConflict: // TODO: is this shareable?
@@ -913,6 +914,11 @@ HttpStateData::haveParsedReplyHeaders()
 
     if (neighbors_do_private_keys && !sawDateGoBack)
         httpMaybeRemovePublic(entry, rep->sline.status());
+
+    if (entry->range_offset != RANGE_UNDEFINED && statusCode != Http::scPartialContent) {
+        // Not storing any range response that is not 206
+        entry->setReleaseFlag();
+    }
 
     bool varyFailure = false;
     if (rep->header.has(Http::HdrType::VARY)

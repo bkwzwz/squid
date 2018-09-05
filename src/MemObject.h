@@ -72,7 +72,7 @@ public:
     int64_t objectBytesOnDisk() const;
     int64_t policyLowestOffsetToKeep(bool swap) const;
     int64_t availableForSwapOut() const; ///< buffered bytes we have not swapped out yet
-    void trimSwappable();
+    void trimSwappable(StoreEntry *entry);
     void trimUnSwappable();
     bool isContiguous() const;
     int mostBytesWanted(int max, bool ignoreDelayPools) const;

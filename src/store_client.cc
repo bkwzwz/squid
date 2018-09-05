@@ -255,8 +255,19 @@ store_client::moreToSend() const
     if (len < 0)
         return canSwapIn;
 
-    if (copyInto.offset >= len)
-        return false; // sent everything there is
+    if (entry->range_offset == RANGE_UNDEFINED || (entry->getReply() && entry->getReply()->sline.status() != Http::scPartialContent)) {
+        if (copyInto.offset >= len) {
+            debugs(90, 3, "moreToSend: copyInto.offset >= len");
+            return false; // sent everything there is
+        }
+    }
+    else {
+        // Range request will need to add range offset
+        if (copyInto.offset >= len + entry->range_offset) {
+            debugs(90, 3, "moreToSend: copyInto.offset >= len + range_offset");
+            return false; // sent everything there is
+        }
+    }
 
     if (canSwapIn)
         return true; // if we lack prefix, we can swap it in
@@ -440,14 +451,27 @@ store_client::fileRead()
     assert(!flags.disk_io_pending);
     flags.disk_io_pending = true;
 
+    int64_t offset = copyInto.offset + mem->swap_hdr_sz;
+
+    if (entry->range_offset != RANGE_UNDEFINED) {
+        // If offset is 0, we are reading file from beginning
+        if (copyInto.offset != 0) {
+            // Range request will need to add range offset
+            debugs(90, 3,
+                   "store_client::fileRead: reduce offset " << offset << " by range_offset " << entry->range_offset);
+            offset = offset - entry->range_offset;
+            assert(offset >= 0);
+        }
+    }
+
     if (mem->swap_hdr_sz != 0)
         if (entry->swappingOut())
-            assert(mem->swapout.sio->offset() > copyInto.offset + (int64_t)mem->swap_hdr_sz);
+            assert(mem->swapout.sio->offset() > offset);
 
     storeRead(swapin_sio,
               copyInto.data,
               copyInto.length,
-              copyInto.offset + mem->swap_hdr_sz,
+              offset,
               mem->swap_hdr_sz == 0 ? storeClientReadHeader
               : storeClientReadBody,
               this);
@@ -484,7 +508,14 @@ store_client::readBody(const char *, ssize_t len)
              */
             int64_t mem_offset = entry->mem_obj->endOffset();
             if ((copyInto.offset == mem_offset) || (parsed_header && mem_offset == rep->hdr_sz)) {
-                entry->mem_obj->write(StoreIOBuffer(len, copyInto.offset, copyInto.data));
+                if (rep->sline.status() == Http::scPartialContent) {
+                    // When storing header of Partial Content from a file read, don't store anything beyond the header
+                    // since those should be offset.  The next read is going to start from the beginning of body anyway
+                    // So the body here is not going to be used
+                    entry->mem_obj->write(StoreIOBuffer(rep->hdr_sz, copyInto.offset, copyInto.data));
+                } else {
+                    entry->mem_obj->write(StoreIOBuffer(len, copyInto.offset, copyInto.data));
+                }
             }
         }
     }
@@ -550,6 +581,15 @@ store_client::unpackHeader(char const *buf, ssize_t len)
         if (!t->checkConsistency(entry)) {
             storeSwapTLVFree(tlv_list);
             return false;
+        }
+
+        // Restore range offset and length from stored META data
+        if (t->getType() == STORE_META_RANGE_OFFSET) {
+            entry->range_offset = *((int64_t *)t->value);
+        }
+
+        if (t->getType() == STORE_META_RANGE_LENGTH) {
+            entry->range_length = *((int64_t *)t->value);
         }
     }
 

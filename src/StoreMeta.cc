@@ -19,6 +19,9 @@
 #include "StoreMetaSTDLFS.h"
 #include "StoreMetaURL.h"
 #include "StoreMetaVary.h"
+#include "StoreMetaRangeOffset.h"
+#include "StoreMetaRangeLength.h"
+
 
 bool
 StoreMeta::validType(char type)
@@ -98,7 +101,15 @@ StoreMeta::Factory (char type, size_t len, void const *value)
         result = new StoreMetaVary;
         break;
 
-    default:
+    case STORE_META_RANGE_OFFSET:
+        result = new StoreMetaRangeOffset;
+        break;
+
+    case STORE_META_RANGE_LENGTH:
+        result = new StoreMetaRangeLength;
+        break;
+            
+        default:
         debugs(20, DBG_CRITICAL, "Attempt to create unknown concrete StoreMeta");
         return NULL;
     }
@@ -156,7 +167,13 @@ StoreMeta::checkConsistency(StoreEntry *) const
     case STORE_META_OBJSIZE:
         break;
 
-    default:
+    case STORE_META_RANGE_OFFSET:
+        break;
+
+    case STORE_META_RANGE_LENGTH:
+        break;
+        
+        default:
         debugs(20, DBG_IMPORTANT, "WARNING: got unused STORE_META type " << getType());
         break;
     }

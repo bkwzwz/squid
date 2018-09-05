@@ -138,6 +138,12 @@ doPages(StoreEntry *anEntry)
 
         mem->swapout.queue_offset += swap_buf_len;
 
+        if (mem->swapout.queue_offset == mem->getReply()->hdr_sz && anEntry->range_offset != RANGE_UNDEFINED)
+        {
+            debugs(20, 3, "storeSwapOut: increment queue_offset by range request offset " << anEntry->range_offset);
+            mem->swapout.queue_offset += anEntry->range_offset;
+        }
+
         // Quit if write() fails. Sio is going to call our callback, and that
         // will cleanup, but, depending on the fs, that call may be async.
         const bool ok = mem->swapout.sio->write(
@@ -210,8 +216,13 @@ StoreEntry::swapOut()
     }
 
 #endif
-    if (swappingOut())
-        assert(mem_obj->inmem_lo <=  mem_obj->objectBytesOnDisk() );
+    if (swap_status == SWAPOUT_WRITING) {
+        if (range_offset == RANGE_UNDEFINED) {
+            assert(mem_obj->inmem_lo <=  mem_obj->objectBytesOnDisk() );
+        } else {
+            assert(mem_obj->inmem_lo <=  mem_obj->objectBytesOnDisk() + range_offset);
+        }
+    }
 
     // buffered bytes we have not swapped out yet
     const int64_t swapout_maxsize = mem_obj->availableForSwapOut();

@@ -765,7 +765,7 @@ clientReplyContext::processMiss()
         return;
     } else {
         assert(http->out.offset == 0);
-        createStoreEntry(r->method, r->flags);
+        createStoreEntry(r->method, r->flags, r->range);
         triggerInitialStoreRead();
 
         if (http->redirect.status) {
@@ -2258,7 +2258,7 @@ clientReplyContext::sendMoreData (StoreIOBuffer result)
 /* Using this breaks the client layering just a little!
  */
 void
-clientReplyContext::createStoreEntry(const HttpRequestMethod& m, RequestFlags reqFlags)
+clientReplyContext::createStoreEntry(const HttpRequestMethod& m, RequestFlags reqFlags, HttpHdrRange *range)
 {
     assert(http != NULL);
     /*
@@ -2272,7 +2272,7 @@ clientReplyContext::createStoreEntry(const HttpRequestMethod& m, RequestFlags re
         HTTPMSGLOCK(http->request);
     }
 
-    StoreEntry *e = storeCreateEntry(storeId(), http->log_uri, reqFlags, m);
+    StoreEntry *e = storeCreateEntry(storeId(), http->log_uri, reqFlags, m, range);
 
     // Make entry collapsable ASAP, to increase collapsing chances for others,
     // TODO: every must-revalidate and similar request MUST reach the origin,

@@ -267,7 +267,17 @@ struct InitStoreEntry : public unary_function<StoreMeta, void> {
             memcpy(&what->timestamp, x.value, STORE_HDR_METASIZE);
             break;
 
-        default:
+        case STORE_META_RANGE_OFFSET:
+            assert(x.length == sizeof(what->range_offset));
+            memcpy(&what->range_offset, x.value, sizeof(what->range_offset));
+            break;
+
+        case STORE_META_RANGE_LENGTH:
+            assert(x.length == sizeof(what->range_length));
+            memcpy(&what->range_length, x.value, sizeof(what->range_length));
+            break;
+
+            default:
             break;
         }
     }

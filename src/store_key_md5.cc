@@ -13,6 +13,8 @@
 #include "md5.h"
 #include "store_key_md5.h"
 #include "URL.h"
+#include "HttpHeaderRange.h"
+#include "Store.h"
 
 static cache_key null_key[SQUID_MD5_DIGEST_LENGTH];
 
@@ -95,7 +97,7 @@ storeKeyPrivate()
 }
 
 const cache_key *
-storeKeyPublic(const char *url, const HttpRequestMethod& method, const KeyScope keyScope)
+storeKeyPublic(const char *url, const HttpRequestMethod& method, const KeyScope keyScope, const int64_t range_offset, const int64_t range_length)
 {
     static cache_key digest[SQUID_MD5_DIGEST_LENGTH];
     unsigned char m = (unsigned char) method.id();
@@ -105,6 +107,13 @@ storeKeyPublic(const char *url, const HttpRequestMethod& method, const KeyScope 
     SquidMD5Update(&M, (unsigned char *) url, strlen(url));
     if (keyScope)
         SquidMD5Update(&M, &keyScope, sizeof(keyScope));
+    if (range_offset != RANGE_UNDEFINED) {
+        SquidMD5Update(&M, &range_offset, sizeof(range_offset));
+        debugs(20, 3, "updating public key by range start index: " << range_offset);
+
+        SquidMD5Update(&M, &range_length, sizeof(range_length));
+        debugs(20, 3, "updating public key by range length: " << range_length);
+    }
     SquidMD5Final(digest, &M);
     return digest;
 }
@@ -116,7 +125,7 @@ storeKeyPublicByRequest(HttpRequest * request, const KeyScope keyScope)
 }
 
 const cache_key *
-storeKeyPublicByRequestMethod(HttpRequest * request, const HttpRequestMethod& method, const KeyScope keyScope)
+storeKeyPublicByRequestMethod(HttpRequest * request, const HttpRequestMethod& method, const KeyScope keyScope, bool useRange) {
 {
     static cache_key digest[SQUID_MD5_DIGEST_LENGTH];
     unsigned char m = (unsigned char) method.id();
@@ -131,6 +140,20 @@ storeKeyPublicByRequestMethod(HttpRequest * request, const HttpRequestMethod& me
     if (!request->vary_headers.isEmpty()) {
         SquidMD5Update(&M, request->vary_headers.rawContent(), request->vary_headers.length());
         debugs(20, 3, "updating public key by vary headers: " << request->vary_headers << " for: " << url);
+    }
+
+    if (useRange && request->range && !request->multipartRangeRequest()) {
+
+        int64_t range_offset = request->range->specs[0]->offset;
+        int64_t range_length = request->range->specs[0]->length;
+
+        if (range_offset != -1) {
+            SquidMD5Update(&M, &range_offset, sizeof(range_offset));
+            debugs(20, 3, "updating public key by range start index: " << range_offset);
+
+            SquidMD5Update(&M, &range_length, sizeof(range_length));
+            debugs(20, 3, "updating public key by range length: " << range_length);
+        }
     }
 
     SquidMD5Final(digest, &M);

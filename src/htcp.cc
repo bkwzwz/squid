@@ -685,6 +685,8 @@ htcpUnpackSpecifier(char *buf, int sz)
         return nil;
     }
 
+    s->request->parseHeader(s->req_hdrs, strlen(s->req_hdrs));
+
     return s;
 }
 
@@ -916,7 +918,7 @@ htcpSpecifier::checkHit()
         return;
     }
 
-    StoreEntry::getPublicByRequest(this, checkHitRequest.getRaw());
+    StoreEntry::getPublicByRequestAlwaysCheckRange(this, checkHitRequest.getRaw());
 }
 
 void
@@ -1039,9 +1041,9 @@ htcpHandleTstResponse(htcpDataHeader * hdr, char *buf, int sz, Ip::Address &from
     htcpReply.hit = hdr->response ? 0 : 1;
 
     if (hdr->F1) {
-        debugs(31, 3, "htcpHandleTstResponse: MISS");
+        debugs(31, 3, "htcpHandleTstResponse: MISS MO=1");
     } else {
-        debugs(31, 3, "htcpHandleTstResponse: HIT");
+        debugs(31, 3, "htcpHandleTstResponse: HIT MO=0");
         d = htcpUnpackDetail(buf, sz);
 
         if (d == NULL) {
@@ -1452,6 +1454,8 @@ htcpQuery(StoreEntry * e, HttpRequest * req, CachePeer * p)
     MemBuf mb;
     mb.init();
     hdr.packInto(&mb);
+    /* trailer */
+    packerAppend(&pa, "\r\n", 2);
     hdr.clean();
     stuff.S.req_hdrs = mb.buf;
     pktlen = htcpBuildPacket(pkt, sizeof(pkt), &stuff);

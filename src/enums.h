@@ -66,6 +66,10 @@ typedef enum {
     STORE_DISK_CLIENT
 } store_client_t;
 
+enum {
+    RANGE_UNDEFINED = -2
+};
+
 /*
  * These are for StoreEntry->flag, which is defined as a SHORT
  *

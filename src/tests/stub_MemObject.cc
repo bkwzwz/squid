@@ -26,7 +26,7 @@ MemObject::endOffset() const
     return data_hdr.endOffset();
 }
 
-void MemObject::trimSwappable() STUB
+void MemObject::trimSwappable(StoreEntry * entry) STUB
 void MemObject::trimUnSwappable() STUB
 int64_t MemObject::policyLowestOffsetToKeep(bool swap) const STUB_RETVAL(-1)
 MemObject::MemObject() :

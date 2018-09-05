@@ -20,6 +20,8 @@ STOREMETA_SOURCE = \
 	StoreMetaSTDLFS.cc \
 	StoreMetaSTDLFS.h \
 	StoreMetaObjSize.h \
+	StoreMetaRangeOffset.h \
+	StoreMetaRangeLength.h \
 	StoreMetaURL.cc \
 	StoreMetaURL.h \
 	StoreMetaVary.cc \

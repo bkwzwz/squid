@@ -686,7 +686,17 @@ htcpUnpackSpecifier(char *buf, int sz)
         return nil;
     }
 
-    SBuf sb(s->req_hdrs, strlen(s->req_hdrs));
+    /* Rebuild header so it can be parsed by RequestParser */
+    SBuf sb;
+    sb.append(s->method);
+    sb.append(" ");
+    sb.append(s->uri);
+    sb.append(" HTTP/");
+    sb.append(s->version);
+    sb.setAt(sb.length()-2, '.'); // convert major/minor to major.minor
+    sb.append("\r\n");
+    sb.append(s->req_hdrs);
+    sb.append("\r\n");
     Http1::RequestParser hp;
     bool parsedOk = hp.parse(sb);
     if (!parsedOk)
@@ -1464,10 +1474,9 @@ htcpQuery(StoreEntry * e, HttpRequest * req, CachePeer * p)
     MemBuf mb;
     mb.init();
     hdr.packInto(&mb);
-    /* trailer */
-    mb.append("\r\n", 2);
     hdr.clean();
     stuff.S.req_hdrs = mb.buf;
+    stuff.S.reqHdrsSz = mb.size;
     pktlen = htcpBuildPacket(pkt, sizeof(pkt), &stuff);
     mb.clean();
     if (!pktlen) {
